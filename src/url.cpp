@@ -1,5 +1,6 @@
 #include "url.h"
 #include <cstdlib>
+#include <fcntl.h>
 #include <format>
 #include <iostream>
 #include <netdb.h> // for getaddrinfo
@@ -11,11 +12,23 @@
 #include <unordered_map>
 
 URL::URL(std::string url) {
+  if (url.size() > 5 && url.substr(0, 5) == "data:") {
+    this->m_scheme = "data";
+    this->m_path = url.substr(5);
+    return;
+  }
+
   auto [scheme, remain] = split(url, "://");
   this->m_scheme = scheme;
 
+  if (this->m_scheme == "file") {
+    this->m_path = remain;
+    return;
+  }
+
   auto [host_port, path] = split(remain, "/");
   auto [host, port] = split(host_port, ":");
+
   assert(host != "");
   this->m_hostname = host;
   this->m_path = "/" + path;
@@ -32,6 +45,20 @@ URL::URL(std::string url) {
 }
 
 std::string URL::request() {
+  if (this->m_scheme == "data") {
+    auto [type, data] = split(this->m_path, ",");
+    return data;
+  }
+
+  if (this->m_scheme == "file") {
+    return this->request_file();
+  }
+
+  if (this->m_scheme != "http" && this->m_scheme != "https") {
+    std::cerr << "Unsupported scheme: " << this->m_scheme << '\n';
+    exit(EXIT_FAILURE);
+  }
+
   addrinfo hints{}, *res;
   hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
@@ -59,8 +86,10 @@ std::string URL::request() {
 
   freeaddrinfo(res);
 
-  std::string request = std::format("GET {} HTTP/1.0\r\nHost: {}\r\n\r\n",
-                                    this->m_path, this->m_hostname);
+  std::string request =
+      std::format("GET {} HTTP/1.1\r\nHost: "
+                  "{}\r\nConnection:close\r\nUser-Agent:toy-browser\r\n\r\n",
+                  this->m_path, this->m_hostname);
   std::string response;
 
   if (this->m_scheme == "https") {
@@ -75,6 +104,10 @@ std::string URL::request() {
 
   auto [version, stat_exp] = split(line, " ");
   auto [status, explanation] = split(stat_exp, " ");
+
+  std::cout << "HTTP Version: " << version << "\n";
+  std::cout << "Status Code: " << status << "\n";
+  std::cout << "Status Explanation: " << explanation << "\n";
 
   std::unordered_map<std::string, std::string> response_headers;
 
@@ -94,6 +127,31 @@ std::string URL::request() {
   return iss.str().substr(iss.tellg());
 }
 
+std::string URL::request_file() {
+  int fd = open(this->m_path.c_str(), O_RDONLY);
+  if (fd < 0) {
+    std::cerr << "Failed to open file: " << this->m_path << '\n';
+    exit(EXIT_FAILURE);
+  }
+
+  std::string response;
+  const int bufsize = 4096;
+  char buffer[bufsize];
+  ssize_t n;
+  while ((n = read(fd, buffer, bufsize)) > 0) {
+    response.append(buffer, n);
+  }
+
+  close(fd);
+
+  if (n < 0) {
+    std::cerr << "Failed to read file: " << this->m_path << '\n';
+    exit(EXIT_FAILURE);
+  }
+
+  return response;
+}
+
 std::string URL::request_http(int sockfd, std::string request) {
   ssize_t bytes_sent = send(sockfd, request.c_str(), request.size(), 0);
 
@@ -102,7 +160,7 @@ std::string URL::request_http(int sockfd, std::string request) {
   char buffer[bufsize];
   ssize_t n;
 
-  while ((n = read(sockfd, buffer, bufsize - 1)) > 0) {
+  while ((n = read(sockfd, buffer, bufsize)) > 0) {
     response.append(buffer, n);
   }
 
@@ -133,9 +191,10 @@ std::string URL::request_https(int sockfd, std::string request) {
   SSL_write(ssl, request.c_str(), request.size());
 
   std::string response;
-  char buffer[4096];
+  const int bufsize = 4096;
+  char buffer[bufsize];
   ssize_t n;
-  while ((n = SSL_read(ssl, buffer, sizeof(buffer))) > 0) {
+  while ((n = SSL_read(ssl, buffer, bufsize)) > 0) {
     response.append(buffer, n);
   }
 

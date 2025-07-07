@@ -22,6 +22,7 @@ private:
   std::string m_path{""};
   std::string m_port{""};
 
+  std::string request_file();
   std::string request_http(int sockfd, std::string request);
   std::string request_https(int sockfd, std::string request);
 
