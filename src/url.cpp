@@ -1,4 +1,5 @@
 #include "url.h"
+#include "cache.h"
 #include <cstdlib>
 #include <fcntl.h>
 #include <format>
@@ -11,7 +12,8 @@
 #include <unistd.h>
 #include <unordered_map>
 
-URL::URL(std::string url, int redirects) : m_redirects(redirects) {
+URL::URL(std::string url, int redirects)
+    : m_redirects(redirects), m_full_url(url) {
   if (url.size() > 5 && url.substr(0, 5) == "data:") {
     this->m_scheme = "data";
     this->m_path = url.substr(5);
@@ -57,6 +59,11 @@ std::string URL::request() {
   if (this->m_scheme != "http" && this->m_scheme != "https") {
     std::cerr << "Unsupported scheme: " << this->m_scheme << '\n';
     exit(EXIT_FAILURE);
+  }
+
+  if (Cache::get(this->m_full_url) != "") {
+    std::cout << "Cache hit for: " << this->m_full_url << "\n";
+    return Cache::get(this->m_full_url);
   }
 
   addrinfo hints{}, *res;
@@ -150,7 +157,13 @@ std::string URL::request() {
     return new_url.request();
   }
 
-  return iss.str().substr(iss.tellg());
+  std::string response_body = iss.str().substr(iss.tellg());
+
+  if (status == "200") {
+    Cache::put(this->m_full_url, response_body);
+  }
+
+  return response_body;
 }
 
 std::string URL::request_file() {

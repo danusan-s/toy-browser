@@ -21,6 +21,7 @@ private:
   std::string m_hostname{""};
   std::string m_path{""};
   std::string m_port{""};
+  std::string m_full_url{""};
   int m_redirects{0};
 
   std::string request_file();
