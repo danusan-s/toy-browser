@@ -5,6 +5,9 @@ project(ToyBrowser)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED True)
 
+# Find OpenSSL
+find_package(OpenSSL REQUIRED)
+
 # Include headers
 include_directories(include)
 
@@ -13,4 +16,8 @@ file(GLOB_RECURSE SOURCES "src/*.cpp")
 
 # Create the executable
 add_executable(browser ${SOURCES})
+
+
+# Link OpenSSL
+target_link_libraries(browser OpenSSL::SSL OpenSSL::Crypto)
 

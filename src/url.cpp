@@ -12,7 +12,6 @@
 
 URL::URL(std::string url) {
   auto [scheme, remain] = split(url, "://");
-  assert(scheme == "http");
   this->m_scheme = scheme;
 
   auto [host_port, path] = split(remain, "/");
