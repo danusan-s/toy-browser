@@ -11,7 +11,7 @@
 #include <unistd.h>
 #include <unordered_map>
 
-URL::URL(std::string url) {
+URL::URL(std::string url, int redirects) : m_redirects(redirects) {
   if (url.size() > 5 && url.substr(0, 5) == "data:") {
     this->m_scheme = "data";
     this->m_path = url.substr(5);
@@ -123,6 +123,32 @@ std::string URL::request() {
 
   assert(response_headers.find("transfer-encoding") == response_headers.end());
   assert(response_headers.find("content-encoding") == response_headers.end());
+
+  if (status == "301" || status == "302") {
+    if (this->m_redirects >= 10) {
+      std::cerr << "Too many redirects" << '\n';
+      exit(EXIT_FAILURE);
+    }
+
+    auto location = response_headers["Location"];
+    if (location.empty()) {
+      std::cerr << "Redirect without Location header" << '\n';
+      exit(EXIT_FAILURE);
+    }
+
+    if (location[0] == '/') {
+      location = this->m_scheme + "://" + this->m_hostname + location;
+    } else if (location.find("://") == std::string::npos) {
+      location = this->m_scheme + "://" + this->m_hostname + "/" + location;
+    }
+
+    std::cout << "Redirect #" << this->m_redirects + 1 << " to: " << location
+              << "\n";
+
+    URL new_url(location, this->m_redirects + 1);
+
+    return new_url.request();
+  }
 
   return iss.str().substr(iss.tellg());
 }

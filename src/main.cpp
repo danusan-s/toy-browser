@@ -1,4 +1,3 @@
-#include <cstdlib>
 #include <iostream>
 #include <url.h>
 
@@ -10,5 +9,6 @@ int main(int argc, char **argv) {
   URL test(argv[1]);
   std::cout << test.scheme() << " " << test.hostname() << " " << test.path()
             << std::endl;
-  std::cout << test.request() << std::endl;
+  std::string response = test.request();
+  std::cout << response << std::endl;
 }

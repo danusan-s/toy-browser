@@ -6,7 +6,7 @@
 
 class URL {
 public:
-  URL(std::string url);
+  URL(std::string url, int redirects = 0);
 
   std::string scheme();
 
@@ -21,6 +21,7 @@ private:
   std::string m_hostname{""};
   std::string m_path{""};
   std::string m_port{""};
+  int m_redirects{0};
 
   std::string request_file();
   std::string request_http(int sockfd, std::string request);
