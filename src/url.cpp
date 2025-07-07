@@ -19,7 +19,6 @@ URL::URL(std::string url) {
   assert(host != "");
   this->m_hostname = host;
   this->m_path = "/" + path;
-  this->m_port = port;
 
   if (this->m_port == "") {
     if (scheme == "http") {
@@ -27,6 +26,8 @@ URL::URL(std::string url) {
     } else if (scheme == "https") {
       this->m_port = "443";
     }
+  } else {
+    this->m_port = port;
   }
 }
 
