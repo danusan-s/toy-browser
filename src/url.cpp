@@ -159,7 +159,8 @@ std::string URL::request() {
 
   std::string response_body = iss.str().substr(iss.tellg());
 
-  if (status == "200") {
+  if (status == "200" &&
+      response_headers["Content-Length"].starts_with("max-age")) {
     Cache::put(this->m_full_url, response_body);
   }
 
